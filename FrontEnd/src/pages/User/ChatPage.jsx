@@ -1,0 +1,533 @@
+import { useState, useRef, useEffect } from "react";
+import { Bot, User, Loader2, Mic, Paperclip, Send } from "lucide-react";
+import axios from "axios";
+
+// Remove TypeScript interface and use plain JS
+const initialMessages = [
+    {
+        id: "1",
+        role: "assistant",
+        content:
+            "Hello! I'm your AI Pharmacist assistant. You can type, speak, or upload an image prescription.\n\nHow can I assist you today?",
+        timestamp: new Date(),
+    },
+];
+
+export default function ChatPage() {
+    const [messages, setMessages] = useState(initialMessages);
+    const [input, setInput] = useState("");
+    const [image, setImage] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [orderModal, setOrderModal] = useState(null);
+    const [isConfirmingOrder, setIsConfirmingOrder] = useState(false);
+
+    //for image OCR 
+    const [extractedData, setExtractedData] = useState(null);
+    const [showConfirm, setShowConfirm] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
+
+
+const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSelectedFile(file);
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    try {
+        setIsLoading(true);
+
+        const res = await axios.post(
+            "http://localhost:5000/api/prescription",
+            formData,
+            {
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                },
+            }
+        );
+
+        setExtractedData(res.data.result);
+        setShowConfirm(true);
+        const now = Date.now();
+        setMessages((prev) => [
+            ...prev,
+            {
+                id: now.toString(),
+                role: "assistant",
+                content: "Prescription scanned successfully. Please review extracted medicines and confirm.",
+                timestamp: new Date(),
+            },
+        ]);
+
+    } catch (err) {
+        const msg =
+            err?.response?.data?.details ||
+            err?.response?.data?.error ||
+            err?.message ||
+            "OCR Failed";
+        alert(`OCR Failed: ${msg}`);
+        console.error("OCR upload failed", err);
+    }
+
+    setIsLoading(false);
+};
+
+    const confirmPrescription = async () => {
+        if (!Array.isArray(extractedData) || extractedData.length === 0) {
+            alert("No extracted medicines to confirm.");
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const token = localStorage.getItem("token");
+            const res = await axios.post(
+                "http://localhost:5000/api/prescription/confirm",
+                { medicines: extractedData },
+                {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                }
+            );
+
+            const available = res.data?.available || [];
+            const unavailable = res.data?.unavailable || [];
+            const recommendedOrder = res.data?.recommendedOrder || null;
+
+            const summaryLines = [];
+            if (available.length > 0) {
+                summaryLines.push(`Available: ${available.map((m) => `${m.medicine_name} (x${m.quantity})`).join(", ")}`);
+            }
+            if (unavailable.length > 0) {
+                summaryLines.push(`Unavailable: ${unavailable.map((m) => `${m.name} (${m.reason})`).join(", ")}`);
+            }
+            if (summaryLines.length === 0) {
+                summaryLines.push("No medicines could be mapped from the prescription.");
+            }
+
+            const now = Date.now();
+            setMessages((prev) => [
+                ...prev,
+                {
+                    id: now.toString(),
+                    role: "assistant",
+                    content: `Prescription verification completed.\n${summaryLines.join("\n")}`,
+                    timestamp: new Date(),
+                },
+            ]);
+
+            if (recommendedOrder) {
+                setOrderModal(recommendedOrder);
+            }
+            setShowConfirm(false);
+        } catch (err) {
+            console.error("Prescription confirm failed", err);
+            const now = Date.now();
+            const msg = err.response?.data?.error || "Failed to verify prescription medicines.";
+            setMessages((prev) => [
+                ...prev,
+                {
+                    id: now.toString(),
+                    role: "assistant",
+                    content: `OCR confirmation failed: ${msg}`,
+                    timestamp: new Date(),
+                },
+            ]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+
+
+    const messagesEndRef = useRef(null);
+    const fileInputRef = useRef(null);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
+
+    // Voice Input
+    const startListening = () => {
+        const SpeechRecognition =
+            window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert("Speech Recognition not supported in this browser.");
+            return;
+        }
+        const recognition = new SpeechRecognition();
+        recognition.lang = "en-US";
+        recognition.start();
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            setInput(transcript);
+        };
+    };
+
+    // Image Upload
+    // const handleImageUpload = (e) => {
+    //     const file = e.target.files?.[0];
+    //     if (!file) return;
+    //     const reader = new FileReader();
+    //     reader.onloadend = () => {
+    //         setImage(reader.result);
+    //     };
+    //     reader.readAsDataURL(file);
+    // };
+
+    const handleSend = async () => {
+        if ((!input.trim() && !image) || isLoading) return;
+        const now = Date.now();
+        let userMessage = input.trim();
+        if (userMessage) {
+            setMessages((prev) => [
+                ...prev,
+                {
+                    id: now.toString(),
+                    role: "user",
+                    content: userMessage,
+                    timestamp: new Date(),
+                },
+            ]);
+        }
+        if (image) {
+            setMessages((prev) => [
+                ...prev,
+                {
+                    id: (now + 1).toString(),
+                    role: "user",
+                    content: `<img src="${image}" style="max-width:200px;border-radius:10px;" />`,
+                    timestamp: new Date(),
+                },
+            ]);
+        }
+        setInput("");
+        setImage(null);
+        setIsLoading(true);
+        try {
+            // Send message to backend Gemini agent
+            const token = localStorage.getItem("token");
+            const res = await axios.post(
+                 "http://localhost:5000/api/agent/chat",
+                { message: userMessage },
+                {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                }
+            );
+            
+            // Check if order modal should be shown
+            if (res.data.showOrderModal && res.data.order) {
+                setOrderModal(res.data.order);
+            }
+            
+            setMessages((prev) => [
+                ...prev,
+                {
+                    id: (now + 2).toString(),
+                    role: "assistant",
+                    content: res.data.reply,
+                    timestamp: new Date(),
+                },
+            ]);
+        } catch (err) {
+            // try to surface a meaningful message from the backend
+            // log error for developer
+            console.error("chat request failed", err);
+            let msg = "Sorry, there was an error communicating with the AI agent.";
+            if (err.response && err.response.data) {
+                msg = err.response.data.error || err.response.data.message || msg;
+                if (err.response.data.details) {
+                    msg += ` (${err.response.data.details})`;
+                }
+            }
+            setMessages((prev) => [
+                ...prev,
+                {
+                    id: (now + 2).toString(),
+                    role: "assistant",
+                    content: msg,
+                    timestamp: new Date(),
+                },
+            ]);
+        }
+        setIsLoading(false);
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+        }
+    };
+
+    const handleConfirmOrder = async () => {
+        if (!orderModal) return;
+        
+        setIsConfirmingOrder(true);
+        try {
+            const token = localStorage.getItem("token");
+            // Get user_id from localStorage (set during login)
+            const userId = localStorage.getItem("user_id");
+            
+            const res = await axios.post(
+                "http://localhost:5000/api/agent/confirm-order",
+                {
+                    medicine_id: orderModal.medicine_id,
+                    quantity: orderModal.quantity,
+                    user_id: userId ? parseInt(userId) : null
+                },
+                {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                }
+            );
+
+            if (res.data.success) {
+                // Add success message to chat
+                const now = Date.now();
+                setMessages((prev) => [
+                    ...prev,
+                    {
+                        id: now.toString(),
+                        role: "assistant",
+                        content: res.data.message,
+                        timestamp: new Date(),
+                    },
+                ]);
+            }
+        } catch (err) {
+            console.error("Order confirmation failed", err);
+            const now = Date.now();
+            const errorMsg = err.response?.data?.error || "Error confirming order. Please try again.";
+            setMessages((prev) => [
+                ...prev,
+                {
+                    id: now.toString(),
+                    role: "assistant",
+                    content: `❌ ${errorMsg}`,
+                    timestamp: new Date(),
+                },
+            ]);
+        } finally {
+            setOrderModal(null);
+            setIsConfirmingOrder(false);
+        }
+    };
+
+    const handleCancelOrder = () => {
+        // Just close the modal and continue chatting
+        setOrderModal(null);
+    };
+
+    return (
+        <div className="flex h-screen flex-col bg-gradient-to-br from-[#0B1F3A] to-[#0E2F5A]">
+            {/* Header */}
+            <div className="border-b px-8 py-4">
+                <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#135C8C] text-white">
+                        <Bot className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <h1 className="text-lg font-semibold text-white">AI Pharmacist</h1>
+                        <p className="text-sm text-[#9FB7C8]">Text • Voice • Image Enabled</p>
+                    </div>
+                </div>
+            </div>
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-8">
+                <div className="mx-auto max-w-3xl space-y-6">
+                    {messages.map((message) => (
+                        <div
+                            key={message.id}
+                            className={`flex gap-4 ${message.role === "user" ? "flex-row-reverse" : ""}`}
+                        >
+                            <div
+                                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${message.role === "assistant"
+                                    ? "bg-[#135C8C] text-white"
+                                    : "bg-[#0E2F5A] text-white"
+                                    }`}
+                            >
+                                {message.role === "assistant" ? <Bot className="h-5 w-5" /> : <User className="h-5 w-5" />}
+                            </div>
+                            <div
+                                className={`max-w-[80%] rounded-2xl px-4 py-3 ${message.role === "assistant"
+                                    ? "bg-[#0E2F5A] text-white"
+                                    : "bg-[#135C8C] text-white"
+                                    }`}
+                            >
+                                <div
+                                    dangerouslySetInnerHTML={{ __html: formatMessage(message.content) }}
+                                />
+                                <p className="mt-2 text-[10px] opacity-60">
+                                    {message.timestamp.toLocaleTimeString([], {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                    })}
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                    {isLoading && (
+                        <div className="flex gap-4">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#135C8C] text-white">
+                                <Bot className="h-5 w-5" />
+                            </div>
+                            <div className="flex items-center gap-2 rounded-2xl bg-[#0E2F5A] px-4 py-3 text-white">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>Analyzing...</span>
+                            </div>
+                        </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                </div>
+            </div>
+            {/* Input */}
+            <div className="border-t p-8 bg-[#0B1F3A]">
+                <div className="mx-auto max-w-3xl relative">
+                    {/* Image preview */}
+                    {image && (
+                        <div className="mb-2">
+                            <img
+                                src={image}
+                                alt="preview"
+                                className="max-w-[120px] rounded-lg border"
+                            />
+                        </div>
+                    )}
+                    <div className="flex items-end gap-2">
+                        <textarea
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            placeholder="Type, speak, or upload prescription..."
+                            className="min-h-[60px] resize-none w-full rounded-lg bg-[#0E2F5A] text-white border border-[#135C8C] focus:outline-none focus:ring-2 focus:ring-[#135C8C] px-4 py-2"
+                            style={{ boxSizing: 'border-box' }}
+                        />
+                        <div className="flex gap-2 items-center">
+                            <button
+                                type="button"
+                                className="rounded-lg p-2 hover:bg-[#135C8C]"
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                <Paperclip className="h-5 w-5 text-[#9FB7C8]" />
+                            </button>
+                            <button
+                                type="button"
+                                className="rounded-lg p-2 hover:bg-[#135C8C]"
+                                onClick={startListening}
+                            >
+                                <Mic className="h-5 w-5 text-[#9FB7C8]" />
+                            </button>
+                            <button
+                                type="button"
+                                className="rounded-lg p-2 bg-[#135C8C] text-white"
+                                onClick={handleSend}
+                                disabled={(!input.trim() && !image) || isLoading}
+                            >
+                                <Send className="h-4 w-4" />
+                            </button>
+                        </div>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            ref={fileInputRef}
+                            onChange={handleImageUpload}
+                            className="hidden"
+                        />
+                    </div>
+                    <p className="mt-2 text-center text-xs text-[#9FB7C8]">
+                        AI responses are for assistance only.
+                    </p>
+                </div>
+            </div>
+            {showConfirm && (
+  <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+    <div className="bg-white rounded-xl p-6 max-w-lg w-full">
+      <h2 className="text-lg font-semibold mb-4">Confirm Extracted Medicines</h2>
+
+      <pre className="bg-gray-100 p-3 rounded text-sm max-h-60 overflow-auto">
+        {JSON.stringify(extractedData, null, 2)}
+      </pre>
+
+      <div className="flex justify-end gap-3 mt-4">
+        <button
+          className="px-4 py-2 bg-gray-300 rounded"
+          onClick={() => setShowConfirm(false)}
+        >
+          Cancel
+        </button>
+
+        <button
+          className="px-4 py-2 bg-blue-600 text-white rounded"
+          onClick={() => confirmPrescription()}
+        >
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+            {/* Order Confirmation Modal */}
+            {orderModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-8 max-w-sm w-full shadow-2xl">
+                        <h2 className="text-2xl font-bold mb-6 text-gray-800">Order Summary</h2>
+                        
+                        <div className="space-y-4 mb-6 bg-blue-50 p-4 rounded-lg">
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Medicine:</span>
+                                <span className="font-semibold text-gray-800">{orderModal.medicine_name}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Quantity:</span>
+                                <span className="font-semibold text-gray-800">{orderModal.quantity} unit(s)</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Price per Unit:</span>
+                                <span className="font-semibold text-gray-800">₹{orderModal.price_per_unit}</span>
+                            </div>
+                            <div className="border-t border-blue-200 pt-3 flex justify-between">
+                                <span className="text-gray-700 font-semibold">Total Amount:</span>
+                                <span className="text-xl font-bold text-blue-600">₹{orderModal.total_price}</span>
+                            </div>
+                            <div className="text-sm text-gray-600">
+                                Stock Available: <span className="font-semibold">{orderModal.stock_available} units</span>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={handleCancelOrder}
+                                disabled={isConfirmingOrder}
+                                className="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg font-medium hover:bg-gray-400 disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirmOrder}
+                                disabled={isConfirmingOrder}
+                                className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {isConfirmingOrder && <Loader2 className="h-4 w-4 animate-spin" />}
+                                {isConfirmingOrder ? "Processing..." : "Confirm Order"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function formatMessage(content) {
+    return content
+        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\n/g, "<br />");
+}
+
+function getStubResponse(input) {
+    // No longer needed, replaced by backend Gemini response
+    return "";
+}
