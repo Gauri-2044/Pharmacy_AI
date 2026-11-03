@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { apiUrl } from "../../config/api";
 
 import AuthLayout from "../../components/auth/AuthLayout";
 import AuthCard from "../../components/auth/AuthCard";
@@ -44,7 +45,7 @@ export default function Register() {
 
     try {
       await axios.post(
-        "http://localhost:5000/api/auth/register",
+        apiUrl("/api/auth/register"),
         formData,
         { withCredentials: true }
       );

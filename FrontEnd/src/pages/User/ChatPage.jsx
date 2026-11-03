@@ -20,6 +20,7 @@ import {
   Home
 } from "lucide-react";
 import axios from "axios";
+import { apiUrl } from "../../config/api";
 import Tooltip from "../../components/common/Tooltip";
 import { useToast } from "../../components/common/useToast";
 
@@ -191,7 +192,7 @@ export default function ChatPage() {
       toast.info("Scanning prescription photo with AI OCR vision...", "Analyzing Image");
 
       const res = await axios.post(
-        "http://localhost:5000/api/prescription",
+        apiUrl("/api/prescription"),
         formData,
         {
           headers: {
@@ -239,7 +240,7 @@ export default function ChatPage() {
       setIsLoading(true);
       const token = localStorage.getItem("token");
       const res = await axios.post(
-        "http://localhost:5000/api/prescription/confirm",
+        apiUrl("/api/prescription/confirm"),
         { medicines: extractedData },
         {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -320,7 +321,7 @@ export default function ChatPage() {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.post(
-        "http://localhost:5000/api/agent/chat",
+        apiUrl("/api/agent/chat"),
         { message: userMessage },
         {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -378,7 +379,7 @@ export default function ChatPage() {
       const userId = localStorage.getItem("user_id");
 
       const res = await axios.post(
-        "http://localhost:5000/api/agent/confirm-order",
+        apiUrl("/api/agent/confirm-order"),
         {
           medicine_id: orderModal.medicine_id,
           quantity: orderModal.quantity,

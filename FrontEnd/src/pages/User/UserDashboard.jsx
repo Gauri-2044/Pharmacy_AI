@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { apiUrl } from "../../config/api";
 import { 
   Loader2, 
   Package, 
@@ -37,7 +38,7 @@ export default function UserDashboard() {
           return;
         }
 
-        const res = await axios.get("http://localhost:5000/api/user/dashboard", {
+        const res = await axios.get(apiUrl("/api/user/dashboard"), {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",

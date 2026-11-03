@@ -1,5 +1,6 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
+import { apiUrl } from "../../config/api";
 import { LogOut, User, Menu, X, Bot } from "lucide-react";
 import { useState } from "react";
 import Tooltip from "../common/Tooltip";
@@ -30,7 +31,7 @@ export default function Navbar() {
   const handleLogout = async () => {
     try {
       await axios.post(
-        "http://localhost:5000/api/auth/logout",
+        apiUrl("/api/auth/logout"),
         {},
         { withCredentials: true }
       );
@@ -69,7 +70,7 @@ export default function Navbar() {
         
         {/* Brand Logo */}
         <Link
-          to={isLoggedIn ? "/dashboard" : "/"}
+          to={isLoggedIn ? (userRole === "admin" ? "/admin" : "/dashboard") : "/"}
           className="flex items-center gap-2.5 text-white font-bold text-lg tracking-tight group"
         >
           <div className="w-9 h-9 bg-gradient-to-tr from-blue-600 to-cyan-400 rounded-xl flex items-center justify-center text-white font-black shadow-md shadow-blue-500/20 group-hover:scale-105 transition">
@@ -113,6 +114,49 @@ export default function Navbar() {
                 FAQs
               </button>
             </>
+          ) : userRole === "admin" ? (
+            <>
+              <Link
+                to="/admin"
+                className={`transition hover:text-blue-400 ${
+                  location.pathname === "/admin" ? "text-blue-400 font-semibold" : ""
+                }`}
+              >
+                Admin Dashboard
+              </Link>
+              <Link
+                to="/admin/medicines"
+                className={`transition hover:text-blue-400 ${
+                  location.pathname === "/admin/medicines" ? "text-blue-400 font-semibold" : ""
+                }`}
+              >
+                Inventory
+              </Link>
+              <Link
+                to="/admin/tracking"
+                className={`transition hover:text-blue-400 ${
+                  location.pathname === "/admin/tracking" ? "text-blue-400 font-semibold" : ""
+                }`}
+              >
+                Agent Tracking
+              </Link>
+              <Link
+                to="/chat"
+                className={`transition hover:text-blue-400 ${
+                  location.pathname === "/chat" ? "text-blue-400 font-semibold" : ""
+                }`}
+              >
+                AI Pharmacist
+              </Link>
+              <Link
+                to="/profile"
+                className={`transition hover:text-blue-400 ${
+                  location.pathname === "/profile" ? "text-blue-400 font-semibold" : ""
+                }`}
+              >
+                Profile
+              </Link>
+            </>
           ) : (
             <>
               <Link
@@ -147,16 +191,6 @@ export default function Navbar() {
               >
                 Profile
               </Link>
-              {userRole === "admin" && (
-                <Link
-                  to="/admin"
-                  className={`transition px-2.5 py-1 rounded-lg bg-blue-950/70 border border-blue-500/30 text-blue-300 hover:bg-blue-900/50 ${
-                    location.pathname.startsWith("/admin") ? "text-blue-400 border-blue-400" : ""
-                  }`}
-                >
-                  Admin Console
-                </Link>
-              )}
             </>
           )}
         </nav>

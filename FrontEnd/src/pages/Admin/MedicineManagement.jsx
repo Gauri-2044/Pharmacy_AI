@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import Tooltip from "../../components/common/Tooltip";
 import { useToast } from "../../components/common/useToast";
+import { apiUrl } from "../../config/api";
 
 export default function MedicineManagement() {
   const [medicines, setMedicines] = useState([]);
@@ -59,7 +60,7 @@ export default function MedicineManagement() {
         stockStatus: stockStatusFilter,
       }).toString();
 
-      const res = await fetch(`http://localhost:5000/api/admin/medicines?${query}`, {
+      const res = await fetch(apiUrl(`/api/admin/medicines?${query}`), {
         headers: getAuthHeaders(),
       });
 
@@ -163,7 +164,7 @@ export default function MedicineManagement() {
         contraindications: newMedicine.contraindications,
       };
 
-      const res = await fetch("http://localhost:5000/api/admin/medicines", {
+      const res = await fetch(apiUrl("/api/admin/medicines"), {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify(payload),
@@ -204,7 +205,7 @@ export default function MedicineManagement() {
         contraindications: editingMedicine.contraindications || "",
       };
 
-      const res = await fetch(`http://localhost:5000/api/admin/medicines/${editingMedicine.id}`, {
+      const res = await fetch(apiUrl(`/api/admin/medicines/${editingMedicine.id}`), {
         method: "PATCH",
         headers: getAuthHeaders(),
         body: JSON.stringify(payload),
@@ -233,7 +234,7 @@ export default function MedicineManagement() {
 
     try {
       setActionLoading(true);
-      const res = await fetch(`http://localhost:5000/api/admin/medicines/${medicineToDelete.id}`, {
+      const res = await fetch(apiUrl(`/api/admin/medicines/${medicineToDelete.id}`), {
         method: "DELETE",
         headers: getAuthHeaders(),
       });

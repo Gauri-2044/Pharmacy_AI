@@ -33,15 +33,7 @@ export const app = express();
 //   allowedHeaders: ["Content-Type", "Authorization"],
 // };
 
-app.use(cors(
-    {
-        origin: 'http://localhost:5173',
-        credentials: true,
-    }
-))
-
 app.use(express.json());
-// app.use(cors(corsOptions));
 
 const allowedOrigins = [
   "http://localhost:5173",
@@ -62,6 +54,8 @@ const corsOptions = {
   },
   credentials: true,
 };
+
+app.use(cors(corsOptions));
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", pid: process.pid });

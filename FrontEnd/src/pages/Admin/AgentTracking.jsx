@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Tooltip from "../../components/common/Tooltip";
 import { useToast } from "../../components/common/useToast";
+import { apiUrl } from "../../config/api";
 
 export default function AgentTracking() {
   const [logs, setLogs] = useState([]);
@@ -39,7 +40,7 @@ export default function AgentTracking() {
       setLoading(true);
       setError("");
 
-      const res = await fetch("http://localhost:5000/api/admin/agent-logs?limit=100", {
+      const res = await fetch(apiUrl("/api/admin/agent-logs?limit=100"), {
         headers: getAuthHeaders(),
       });
 

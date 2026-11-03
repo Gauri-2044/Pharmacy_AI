@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { apiUrl } from "../../config/api";
 import { 
   Package, 
   Calendar, 
@@ -43,7 +44,7 @@ export default function HistoryPage() {
         return;
       }
 
-      const res = await axios.get("http://localhost:5000/api/user/history", {
+      const res = await axios.get(apiUrl("/api/user/history"), {
         headers: { Authorization: `Bearer ${token}` },
         withCredentials: true,
       });

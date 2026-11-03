@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { apiUrl } from "../../config/api";
 import { 
   Loader2, 
   Package, 
@@ -32,7 +33,7 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await axios.get("http://localhost:5000/api/admin/dashboard", {
+      const res = await axios.get(apiUrl("/api/admin/dashboard"), {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { LogOut, LayoutDashboard, Package, Activity, ExternalLink, Menu, X, Shield } from "lucide-react";
 import axios from "axios";
+import { apiUrl } from "../../config/api";
 import Tooltip from "../common/Tooltip";
 import { useToast } from "../common/useToast";
 
@@ -16,7 +17,7 @@ export default function AdminLayout() {
 
   const handleLogout = async () => {
     try {
-      await axios.post("http://localhost:5000/api/auth/logout", {}, { withCredentials: true });
+      await axios.post(apiUrl("/api/auth/logout"), {}, { withCredentials: true });
     } catch {
       // ignore
     }

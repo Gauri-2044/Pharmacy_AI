@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
+import { apiUrl } from "../../config/api";
 import { 
   User, 
   Mail, 
@@ -42,7 +43,7 @@ const ProfileCard = ({ user, onUserUpdate }) => {
     try {
       const token = localStorage.getItem("token");
       await axios.patch(
-        "http://localhost:5000/api/user/profile",
+        apiUrl("/api/user/profile"),
         {
           allergy: formData.allergy,
           image_url: formData.image_url,

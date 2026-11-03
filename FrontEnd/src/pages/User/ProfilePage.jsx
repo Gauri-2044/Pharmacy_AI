@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { apiUrl } from "../../config/api";
 import ProfileCard from "../../components/ProfilePage/ProfileCard";
 import Loader from "../../components/ProfilePage/Loader";
 
@@ -7,7 +8,7 @@ const getUserProfile = async () => {
   const token = localStorage.getItem("token");
 
   const response = await axios.get(
-    "http://localhost:5000/api/user/profile",
+    apiUrl("/api/user/profile"),
     {
       headers: {
         Authorization: `Bearer ${token}`,
