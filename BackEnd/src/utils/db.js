@@ -9,13 +9,13 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const { Pool } = pg;
 
-export const db = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+const connectionString = process.env.NEON_URL;
+
+if (!connectionString) {
+  throw new Error("NEON_URL is not configured in BackEnd/.env");
+}
+
+export const db = new Pool({ connectionString });
 
 db.connect()
   .then((client) => {

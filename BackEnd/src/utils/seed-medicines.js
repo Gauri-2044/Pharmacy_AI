@@ -4,11 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const pool = new pg.Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  connectionString: process.env.NEON_URL,
 });
 
 const medicines = [
@@ -128,12 +124,8 @@ async function seedDatabase() {
   try {
     console.log('📊 Starting database seeding...');
     
-    // Drop existing medicines table and recreate
-    await pool.query(`DROP TABLE IF EXISTS medicines CASCADE`);
-    console.log('✅ Dropped old medicines table if exists');
-    
     await pool.query(`
-      CREATE TABLE medicines (
+      CREATE TABLE IF NOT EXISTS medicines (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL UNIQUE,
         description TEXT,
@@ -148,7 +140,7 @@ async function seedDatabase() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('✅ Medicines table created');
+    console.log('✅ Medicines table created/verified');
 
     // Insert sample medicines
     let inserted = 0;
