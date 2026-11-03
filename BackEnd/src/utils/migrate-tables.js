@@ -13,6 +13,14 @@ const pool = new pg.Pool({
 
 async function createTablesIfNotExists() {
   try {
+    console.log('📊 Updating users table...');
+
+    await pool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS phone VARCHAR(30)
+    `);
+    console.log('✅ Users table updated/verified');
+
     console.log('📊 Creating orders table...');
     
     // Create orders table

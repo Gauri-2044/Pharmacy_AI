@@ -1,51 +1,31 @@
-import { db } from "../db.js";
+import { medicineRepository } from "../repositories/medicine.repository.js";
+import { medicineService } from "../services/medicine.service.js";
 
-export const getAllMedicines = async (req, res) => {
+export async function getAllMedicines(req, res) {
   try {
-    const result = await db.query(
-      "SELECT id, name, description, composition, dosage, side_effects, contraindications, price, stock, category, created_at, updated_at FROM medicines ORDER BY name ASC"
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error("[medicines.getAll] Error:", err.message);
-    res.status(500).json({ message: "Failed to fetch medicines" });
+    const result = await medicineRepository.search("");
+    return res.json(result);
+  } catch (error) {
+    console.error("[medicines.list]", error.message);
+    return res.status(500).json({ message: "Failed to fetch medicines" });
   }
-};
+}
 
-export const getMedicineById = async (req, res) => {
+export async function getMedicineById(req, res) {
   try {
-    const { id } = req.params;
-    const result = await db.query(
-      "SELECT id, name, description, composition, dosage, side_effects, contraindications, price, stock, category, created_at, updated_at FROM medicines WHERE id = $1",
-      [id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Medicine not found" });
-    }
-
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error("[medicines.getById] Error:", err.message);
-    res.status(500).json({ message: "Failed to fetch medicine" });
+    const medicine = await medicineService.getDetails(req.params.id);
+    return res.json(medicine);
+  } catch (error) {
+    return res.status(error.message === "Medicine not found" ? 404 : 400).json({ message: error.message });
   }
-};
+}
 
-export const searchMedicines = async (req, res) => {
+export async function searchMedicines(req, res) {
   try {
-    const { q = "" } = req.query;
-    const result = await db.query(
-      `SELECT id, name, description, composition, dosage, side_effects, contraindications, price, stock, category, created_at, updated_at
-       FROM medicines
-       WHERE LOWER(name) LIKE LOWER($1)
-       ORDER BY name ASC
-       LIMIT 50`,
-      [`%${q}%`]
-    );
-
-    res.json(result.rows);
-  } catch (err) {
-    console.error("[medicines.search] Error:", err.message);
-    res.status(500).json({ message: "Failed to search medicines" });
+    const result = await medicineService.searchCatalog(req.query?.q || "");
+    return res.json(result.matches);
+  } catch (error) {
+    console.error("[medicines.search]", error.message);
+    return res.status(400).json({ message: error.message });
   }
-};
+}

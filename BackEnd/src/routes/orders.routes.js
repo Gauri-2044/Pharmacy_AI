@@ -2,16 +2,15 @@ import express from "express";
 import authenticate from "../middleware/authenticate.js";
 import {
   createOrder,
+  listOrders,
   getOrderById,
   cancelOrder,
-} from "../controllers/order.controller.js";
+} from "../controllers/order-layer.controller.js";
 
 const ordersRouter = express.Router();
 
 // ✅ Get all orders
-ordersRouter.get("/orders", authenticate, (req, res) => {
-  res.send("Orders fetched successfully");
-});
+ordersRouter.get("/orders", authenticate, listOrders);
 
 // ✅ Place Order (DB + Email)
 ordersRouter.post("/orders", authenticate, createOrder);

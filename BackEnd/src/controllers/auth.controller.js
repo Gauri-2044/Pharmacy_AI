@@ -1,131 +1,38 @@
-import { db } from "../db.js";
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+import { authService } from "../services/auth.service.js";
 
-// ============================
-// REGISTER USER
-// ============================
-export const registerUser = async (req, res) => {
+export async function registerUser(req, res) {
   try {
-    const { username, phone, email, password, confirmPassword } = req.body;
-
-    if (!username || !phone || !email || !password || !confirmPassword) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-    if (password !== confirmPassword) {
-      return res.status(400).json({ message: "Passwords do not match" });
-    }
-
-    // Check if user already exists
-    const existingUser = await db.query(
-      "SELECT user_id FROM users WHERE email = $1",
-      [email]
-    );
-
-    if (existingUser.rows.length > 0) {
-      return res.status(400).json({ message: "User already exists" });
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Insert new user
-    await db.query(
-      "INSERT INTO users (user_name, phone, email, hashed_password, user_role) VALUES ($1, $2, $3, $4, $5)",
-      [username, phone, email, hashedPassword, "user"]
-    );
-
-    res.status(201).json({ message: "Registration successful" });
-
-  } catch (err) {
-    console.error("Register Error:", err);
-    res.status(500).json({ message: "Server error" });
+    await authService.register(req.body || {});
+    return res.status(201).json({ message: "Registration successful" });
+  } catch (error) {
+    const status = ["User already exists", "Passwords do not match", "All fields are required"].includes(error.message) ? 400 : 500;
+    console.error("[auth.register]", error.message);
+    return res.status(status).json({ message: status === 500 ? "Server error" : error.message });
   }
-};
+}
 
-// ============================
-// LOGIN USER
-// ============================
-export const loginUser = async (req, res) => {
+export async function loginUser(req, res) {
   try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-    // Get user by email
-    const result = await db.query(
-      "SELECT * FROM users WHERE email = $1",
-      [email]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
-
-    const user = result.rows[0];
-
-    // Compare password
-    const isMatch = await bcrypt.compare(password, user.hashed_password);
-
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
-
-    if (!process.env.JWT_SECRET) {
-      throw new Error("JWT_SECRET not defined in environment variables");
-    }
-
-    // Generate token
-    const token = jwt.sign(
-      { user_id: user.user_id, role: user.user_role },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
-    );
-
-    // Set cookie
-    res.cookie("token", token, {
+    const result = await authService.authenticate(req.body?.email, req.body?.password);
+    res.cookie("token", result.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000 // 1 day
+      maxAge: 24 * 60 * 60 * 1000,
     });
-
-    res.json({
-      message: "Login successful",
-      token,
-      user: {
-        user_id: user.user_id,
-        username: user.user_name,
-        email: user.email,
-        role: user.user_role
-      }
-    });
-
-  } catch (err) {
-    console.error("Login Error:", err);
-    res.status(500).json({ message: "Server error" });
+    return res.json({ message: "Login successful", ...result });
+  } catch (error) {
+    const status = ["All fields are required", "Invalid credentials"].includes(error.message) ? 400 : 500;
+    console.error("[auth.login]", error.message);
+    return res.status(status).json({ message: status === 500 ? "Server error" : error.message });
   }
-};
+}
 
-// ============================
-// LOGOUT USER
-// ============================
-export const logoutUser = (req, res) => {
-  res.clearCookie("token", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production"
-  });
+export function logoutUser(req, res) {
+  res.clearCookie("token", { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
+  return res.json({ message: "Logged out successfully" });
+}
 
-  res.json({ message: "Logged out successfully" });
-};
-
-// ============================
-// GET CURRENT USER
-// ============================
-export const getCurrentUser = (req, res) => {
-  res.json({ user: req.user || null });
-};
+export function getCurrentUser(req, res) {
+  return res.json({ user: req.user || null });
+}

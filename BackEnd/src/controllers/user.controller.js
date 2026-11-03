@@ -1,4 +1,6 @@
-import { db } from "../db.js";
+import { db } from "../utils/db.js";
+import { userPreferencesRepository } from "../repositories/user-preferences.repository.js";
+import { analyzeAllergyText } from "../services/allergy.service.js";
 
 export const getProfile = async (req, res) => {
   try {
@@ -89,6 +91,9 @@ export const getProfile = async (req, res) => {
       recentOrders = [];
     }
 
+    const preferences = await userPreferencesRepository.findByUserId(userId);
+    const allergyAnalysis = preferences?.allergy_analysis || null;
+
     res.json({
       user_id: user.user_id,
       username: user.username,
@@ -96,6 +101,10 @@ export const getProfile = async (req, res) => {
       phone: user.phone,
       role: user.user_role,
       created_at: user.created_at,
+      allergy: preferences?.allergy_text || "",
+      allergy_chemicals: allergyAnalysis?.associatedAgents || [],
+      allergy_analysis: allergyAnalysis,
+      image_url: preferences?.image_url || "",
       ...orderStats,
       recentOrders,
     });
@@ -106,15 +115,33 @@ export const getProfile = async (req, res) => {
 };
 
 export const updateProfile = async (req, res) => {
-  const userId = req.user.user_id;
-  const { allergy, image_url } = req.body;
+  try {
+    const userId = req.user.user_id;
+    const { allergy, image_url, phone } = req.body || {};
+    const allergyText = String(allergy || "").trim().slice(0, 1000);
+    const imageUrl = String(image_url || "").trim().slice(0, 2000);
 
-  await db.query(
-    "UPDATE users SET allergy = $1, image_url = $2 WHERE user_id = $3",
-    [allergy, image_url, userId]
-  );
+    if (phone !== undefined) {
+      await db.query("UPDATE users SET phone = $1 WHERE user_id = $2", [String(phone).trim().slice(0, 30), userId]);
+    }
 
-  res.json({ message: "Profile updated" });
+    const preferences = await userPreferencesRepository.upsert({
+      userId,
+      allergyText,
+      allergyAnalysis: analyzeAllergyText(allergyText),
+      imageUrl,
+    });
+
+    return res.json({
+      message: "Profile updated",
+      allergy: preferences.allergy_text || "",
+      allergy_analysis: preferences.allergy_analysis,
+      image_url: preferences.image_url || "",
+    });
+  } catch (error) {
+    console.error("[user.profile.update] Error:", error.message);
+    return res.status(500).json({ message: "Failed to update profile" });
+  }
 };
 
 export const getDashboard = async (req, res) => {
@@ -163,24 +190,24 @@ export const getDashboard = async (req, res) => {
 
     // Low stock alerts (medicines user ordered that have low stock)
     const lowStockAlertsResult = await db.query(
-      `SELECT DISTINCT ON (m.id)
-              m.id AS medicine_id,
-              m.name AS medicine_name,
-              m.stock,
+      `SELECT DISTINCT ON (m.med_id)
+              m.med_id AS medicine_id,
+              m.med_name AS medicine_name,
+              COALESCE(m.stock_quantity, m.stock) AS stock,
               m.price,
               (
                 SELECT created_at
                 FROM orders
-                WHERE user_id = $1 AND medicine_id = m.id
+                WHERE user_id = $1 AND medicine_id = m.med_id
                 ORDER BY created_at DESC
                 LIMIT 1
               ) AS last_order_date
        FROM medicines m
-       WHERE m.id IN (
+       WHERE m.med_id IN (
          SELECT DISTINCT medicine_id FROM orders WHERE user_id = $1
        )
-       AND m.stock < 20
-       ORDER BY m.id, m.stock ASC`,
+       AND COALESCE(m.stock_quantity, m.stock) < 20
+       ORDER BY m.med_id, COALESCE(m.stock_quantity, m.stock) ASC`,
       [userId]
     );
 
@@ -240,9 +267,9 @@ export const getOrderHistory = async (req, res) => {
   const userId = req.user.user_id;
 
   const result = await db.query(
-    `SELECT o.id AS order_id, o.quantity, o.status AS order_status, m.name AS medicine_name
+    `SELECT o.id AS order_id, o.quantity, o.status AS order_status, m.med_name AS medicine_name
      FROM orders o
-     LEFT JOIN medicines m ON m.id = o.medicine_id
+     LEFT JOIN medicines m ON m.med_id = o.medicine_id
      WHERE o.user_id = $1
      ORDER BY o.created_at DESC`,
     [userId]
@@ -255,9 +282,9 @@ export const getRefillPredictions = async (req, res) => {
   const userId = req.user.user_id;
 
   const result = await db.query(
-    `SELECT m.name AS medicine_name, o.quantity, o.created_at AS ordered_at
+    `SELECT m.med_name AS medicine_name, o.quantity, o.created_at AS ordered_at
      FROM orders o
-     LEFT JOIN medicines m ON m.id = o.medicine_id
+     LEFT JOIN medicines m ON m.med_id = o.medicine_id
      WHERE o.user_id = $1
      ORDER BY o.created_at DESC`,
     [userId]

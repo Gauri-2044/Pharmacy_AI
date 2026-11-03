@@ -22,8 +22,9 @@
     "langfuse": "^3.38.6",
     "multer": "^2.1.0",
     "nodemailer": "^8.0.1",
+    "nodemon": "^3.1.14",
     "openai": "^6.25.0",
-    "pg": "^8.19.0",
+    "pg": "^8.23.1",
     "postgres": "^3.4.8"
   },
   "description": ""

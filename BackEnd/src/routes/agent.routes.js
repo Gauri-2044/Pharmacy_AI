@@ -1,6 +1,6 @@
 // src/routes/agent.routes.js
 import express from "express";
-import { chatWithAgent, confirmOrder } from "../controllers/agent.controller.js";
+import { chatWithAgent, confirmOrder } from "../controllers/chat.controller.js";
 import authenticate from "../middleware/authenticate.js";
 
 const router = express.Router();

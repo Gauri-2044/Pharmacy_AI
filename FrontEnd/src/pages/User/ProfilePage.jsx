@@ -3,7 +3,7 @@ import axios from "axios";
 import ProfileCard from "../../components/ProfilePage/ProfileCard";
 import Loader from "../../components/ProfilePage/Loader";
 
-export const getUserProfile = async () => {
+const getUserProfile = async () => {
   const token = localStorage.getItem("token");
 
   const response = await axios.get(
@@ -29,17 +29,40 @@ const ProfilePage = () => {
         const data = await getUserProfile();
         setUser(data);
       } catch (err) {
-        setError("Failed to load profile.");
+        console.warn("Failed to fetch backend profile, falling back to cached profile.", err);
+        // Fallback to localStorage user if available
+        try {
+          const cached = localStorage.getItem("user");
+          if (cached) {
+            setUser(JSON.parse(cached));
+            return;
+          }
+        } catch {
+          // ignore
+        }
+        setError("Failed to load profile. Please verify your login session.");
       }
     };
 
     fetchUser();
   }, []);
 
-  if (error) {
+  const handleUserUpdate = (updatedFields) => {
+    setUser((prev) => ({ ...prev, ...updatedFields }));
+  };
+
+  if (error && !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0B1220] px-4">
-        <h2 className="text-red-400 text-xl font-semibold">{error}</h2>
+      <div className="min-h-[70vh] flex items-center justify-center bg-[#0B1220] px-4">
+        <div className="p-6 rounded-2xl bg-rose-950/40 border border-rose-800/60 text-center max-w-md">
+          <h2 className="text-rose-300 text-lg font-semibold">{error}</h2>
+          <a
+            href="/login"
+            className="mt-4 inline-block px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition"
+          >
+            Go to Login
+          </a>
+        </div>
       </div>
     );
   }
@@ -47,9 +70,9 @@ const ProfilePage = () => {
   if (!user) return <Loader />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0B1220] via-[#0B1730] to-[#0B1220]">
-      <div className="flex justify-center items-center py-16 px-4">
-        <ProfileCard user={user} />
+    <div className="min-h-screen bg-gradient-to-b from-[#0B1220] via-[#0B1730] to-[#0B1220] py-12 px-4 sm:px-6">
+      <div className="max-w-4xl mx-auto flex flex-col items-center justify-center">
+        <ProfileCard user={user} onUserUpdate={handleUserUpdate} />
       </div>
     </div>
   );

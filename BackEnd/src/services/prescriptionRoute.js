@@ -5,7 +5,7 @@ import express from "express";
 import multer from "multer";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
-import { db } from "./db.js";
+import { db } from "../utils/db.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -171,13 +171,21 @@ router.post("/prescription/confirm", async (req, res) => {
       if (!medicineName) continue;
 
       let matchResult = await db.query(
-        "SELECT id, name, price, stock, dosage FROM medicines WHERE LOWER(name) = LOWER($1) LIMIT 1",
+        `SELECT med_id AS id, med_name AS name, price,
+                COALESCE(stock_quantity, stock) AS stock,
+                package_size AS dosage
+         FROM medicines WHERE LOWER(med_name) = LOWER($1) LIMIT 1`,
         [medicineName]
       );
 
       if (matchResult.rows.length === 0) {
         matchResult = await db.query(
-          "SELECT id, name, price, stock, dosage FROM medicines WHERE LOWER(name) LIKE LOWER($1) ORDER BY stock DESC LIMIT 1",
+          `SELECT med_id AS id, med_name AS name, price,
+                  COALESCE(stock_quantity, stock) AS stock,
+                  package_size AS dosage
+           FROM medicines
+           WHERE LOWER(med_name) LIKE LOWER($1)
+           ORDER BY COALESCE(stock_quantity, stock) DESC LIMIT 1`,
           [`%${medicineName}%`]
         );
       }

@@ -6,9 +6,11 @@ import AuthLayout from "../../components/auth/AuthLayout";
 import AuthCard from "../../components/auth/AuthCard";
 import InputField from "../../components/auth/InputField";
 import PrimaryButton from "../../components/auth/PrimaryButton";
+import { useToast } from "../../components/common/useToast";
 
 export default function Register() {
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [formData, setFormData] = useState({
     username: "",
@@ -21,7 +23,6 @@ export default function Register() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Handle input changes
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -29,36 +30,32 @@ export default function Register() {
     });
   };
 
-  // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
     if (formData.password !== formData.confirmPassword) {
-      return setError("Passwords do not match");
+      setError("Passwords do not match");
+      toast.warning("Passwords do not match.", "Validation Error");
+      return;
     }
 
-    console.log("Submitting Registration:", formData);
     setLoading(true);
 
     try {
-      const res = await axios.post(
+      await axios.post(
         "http://localhost:5000/api/auth/register",
         formData,
         { withCredentials: true }
       );
-      
 
-      console.log("Registration Success:", res.data);
-
-      // Redirect to login after successful registration
+      toast.success("Account created successfully! Please sign in.", "Registered");
       navigate("/login");
-
     } catch (err) {
       console.error(err);
-      setError(
-        err.response?.data?.message || "Something went wrong"
-      );
+      const msg = err.response?.data?.message || "Registration failed. Try again.";
+      setError(msg);
+      toast.error(msg, "Registration Failed");
     } finally {
       setLoading(false);
     }
@@ -67,8 +64,8 @@ export default function Register() {
   return (
     <AuthLayout>
       <AuthCard
-        title="Create your account"
-        subtitle="Start optimizing your workflow with Pharmacy AI today."
+        title="Create your patient account"
+        subtitle="Manage prescriptions, consultations, and refills with Pharmacy AI."
       >
         <form className="space-y-4" onSubmit={handleSubmit}>
           <InputField
@@ -84,7 +81,7 @@ export default function Register() {
             name="phone"
             value={formData.phone}
             onChange={handleChange}
-            placeholder="e.g. 1234567890"
+            placeholder="+91 98765 43210"
           />
 
           <InputField
@@ -93,7 +90,7 @@ export default function Register() {
             name="email"
             value={formData.email}
             onChange={handleChange}
-            placeholder="name@pharmacy.com"
+            placeholder="patient@pharmacy.com"
           />
 
           <InputField
@@ -115,7 +112,7 @@ export default function Register() {
           />
 
           {error && (
-            <p className="text-red-500 text-sm">{error}</p>
+            <p className="text-red-400 text-xs bg-red-950/60 p-2.5 rounded-lg border border-red-800/60">{error}</p>
           )}
 
           <PrimaryButton type="submit" disabled={loading}>
@@ -125,8 +122,8 @@ export default function Register() {
 
         <p className="text-[#9FB7C8] text-sm text-center mt-6">
           Already have an account?{" "}
-          <Link to="/login" className="text-[#5F8FA8] hover:underline">
-            Back to Login
+          <Link to="/login" className="text-blue-400 hover:underline font-medium">
+            Sign In
           </Link>
         </p>
       </AuthCard>

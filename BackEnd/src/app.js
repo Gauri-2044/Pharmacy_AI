@@ -8,7 +8,7 @@ import medicineRouter from "./routes/medicines.routes.js";
 import ordersRouter from "./routes/orders.routes.js";
 import adminRouter from "./routes/admin.routes.js";
 import userRouter from "./routes/user.routes.js";
-import prescriptionRoute from "./prescriptionRoute.js";
+import prescriptionRoute from "./services/prescriptionRoute.js";
 
 export const app = express();
 

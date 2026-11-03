@@ -1,4 +1,4 @@
-import { db } from "../db.js";
+import { db } from "../utils/db.js";
 
 /* ===========================
    DASHBOARD
@@ -12,12 +12,12 @@ export const getAdminDashboard = async (req, res) => {
 
     // Low stock alerts (stock <= 10 and > 0)
     const lowStockResult = await db.query(
-      "SELECT COUNT(*) AS lowstockalerts FROM medicines WHERE stock <= 10 AND stock > 0"
+      "SELECT COUNT(*) AS lowstockalerts FROM medicines WHERE COALESCE(stock_quantity, stock) <= 10 AND COALESCE(stock_quantity, stock) > 0"
     );
 
     // Out of stock alerts (stock = 0)
     const outOfStockResult = await db.query(
-      "SELECT COUNT(*) AS outofstockalerts FROM medicines WHERE stock = 0"
+      "SELECT COUNT(*) AS outofstockalerts FROM medicines WHERE COALESCE(stock_quantity, stock) = 0"
     );
 
     // Total orders
@@ -143,34 +143,32 @@ export const getAllMedicinesAdmin = async (req, res) => {
     let i = 1;
 
     if (q && String(q).trim()) {
-      where.push(`(
-        LOWER(name) LIKE LOWER($${i})
-        OR LOWER(COALESCE(category, '')) LIKE LOWER($${i})
-        OR LOWER(COALESCE(composition, '')) LIKE LOWER($${i})
-      )`);
+      where.push(`LOWER(med_name) LIKE LOWER($${i})`);
       params.push(`%${String(q).trim()}%`);
       i++;
     }
 
     if (stockStatus === "out") {
-      where.push("stock = 0");
+      where.push("COALESCE(stock_quantity, stock) = 0");
     } else if (stockStatus === "low") {
-      where.push("stock <= 10 AND stock > 0");
+      where.push("COALESCE(stock_quantity, stock) <= 10 AND COALESCE(stock_quantity, stock) > 0");
     } else if (stockStatus === "in") {
-      where.push("stock > 10");
+      where.push("COALESCE(stock_quantity, stock) > 10");
     }
 
     const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
     const result = await db.query(
-      `SELECT *,
+      `SELECT med_id AS id, med_name AS name, pzn, price, stock,
+              stock_quantity, package_size, description,
+              requires_prescription, created_at, updated_at,
               CASE
-                WHEN stock = 0 THEN 'OUT_OF_STOCK'
-                WHEN stock <= 10 THEN 'LOW_STOCK'
+                WHEN COALESCE(stock_quantity, stock) = 0 THEN 'OUT_OF_STOCK'
+                WHEN COALESCE(stock_quantity, stock) <= 10 THEN 'LOW_STOCK'
                 ELSE 'IN_STOCK'
               END AS stock_status
        FROM medicines
        ${whereClause}
-       ORDER BY stock ASC, name ASC`,
+       ORDER BY COALESCE(stock_quantity, stock) ASC, med_name ASC`,
       params
     );
 
@@ -196,20 +194,22 @@ export const createMedicine = async (req, res) => {
     } = req.body;
 
     const result = await db.query(
-      `INSERT INTO medicines 
-       (name, price, description, composition, dosage, side_effects, contraindications, stock, category)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO medicines
+       (med_id, med_name, pzn, price, stock, package_size, description, requires_prescription, stock_quantity)
+       VALUES (
+         (SELECT COALESCE(MAX(med_id), 0) + 1 FROM medicines),
+         $1, $2, $3, $4, $5, $6, $7, $8
+       )
        RETURNING *`,
       [
         name,
+        req.body.pzn || name,
         price,
-        description,
-        composition,
-        dosage,
-        side_effects,
-        contraindications,
         stock ?? 0,
-        category,
+        description,
+        req.body.package_size || null,
+        Boolean(req.body.requires_prescription),
+        stock ?? 0,
       ]
     );
 
@@ -241,29 +241,20 @@ export const updateMedicine = async (req, res) => {
     }
 
     const result = await db.query(
-      `UPDATE medicines 
-       SET name = $1,
+      `UPDATE medicines
+       SET med_name = $1,
            price = $2,
            stock = $3,
            description = $4,
-           composition = $5,
-           dosage = $6,
-           side_effects = $7,
-           contraindications = $8,
-           category = $9,
+           stock_quantity = $3,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $10
+       WHERE med_id = $5
        RETURNING *`,
       [
         name,
         price,
         stock,
         description,
-        composition,
-        dosage,
-        side_effects,
-        contraindications,
-        category,
         id,
       ]
     );
@@ -283,7 +274,7 @@ export const deleteMedicine = async (req, res) => {
     const { id } = req.params;
 
     const result = await db.query(
-      "DELETE FROM medicines WHERE id = $1 RETURNING *",
+      "DELETE FROM medicines WHERE med_id = $1 RETURNING *",
       [id]
     );
 

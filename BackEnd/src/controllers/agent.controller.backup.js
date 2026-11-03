@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { db } from "../db.js";
+import { db } from "../utils/db.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 
 /* ==============================

@@ -3,7 +3,7 @@
  * Tests all intents and validates medical field restriction
  */
 
-import { chatWithAgent } from './src/controllers/agent.controller.js';
+import { chatWithAgent } from '../src/controllers/agent.controller.js';
 import { db } from './src/controllers/../db.js';
 import dotenv from 'dotenv';
 

@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 
 import AuthLayout from "../../components/auth/AuthLayout";
 import AuthCard from "../../components/auth/AuthCard";
 import InputField from "../../components/auth/InputField";
 import PrimaryButton from "../../components/auth/PrimaryButton";
-// import Divider from "../../components/auth/Divider";
+import { useToast } from "../../components/common/useToast";
 
 export default function Login() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const toast = useToast();
 
     const [formData, setFormData] = useState({
         email: "",
@@ -36,11 +38,9 @@ export default function Login() {
                 "http://localhost:5000/api/auth/login",
                 formData,
                 {
-                    withCredentials: true, // ✅ IMPORTANT for cookies
+                    withCredentials: true,
                 }
             );
-
-            console.log("Login Success:", res.data);
 
             // Save JWT token to localStorage for authenticated requests
             localStorage.setItem("token", res.data.token);
@@ -49,11 +49,15 @@ export default function Login() {
             if (res.data.user) {
                 localStorage.setItem("user", JSON.stringify(res.data.user));
                 localStorage.setItem("user_id", res.data.user.user_id);
-                console.log("✅ User data stored:", res.data.user);
             }
 
-            // Redirect based on role
-            if (res.data.user?.role === "admin") {
+            toast.success(`Welcome back, ${res.data.user?.name || res.data.user?.username || "Patient"}!`, "Signed In");
+
+            // Redirect to intended route (e.g. /chat) or role default
+            const returnUrl = location.state?.from?.pathname || location.state?.from;
+            if (returnUrl) {
+                navigate(returnUrl);
+            } else if (res.data.user?.role === "admin") {
                 navigate("/admin");
             } else {
                 navigate("/dashboard");
@@ -61,9 +65,9 @@ export default function Login() {
 
         } catch (err) {
             console.error(err);
-            setError(
-                err.response?.data?.message || "Something went wrong"
-            );
+            const msg = err.response?.data?.message || "Sign in failed. Check your credentials.";
+            setError(msg);
+            toast.error(msg, "Authentication Failed");
         } finally {
             setLoading(false);
         }
@@ -73,7 +77,7 @@ export default function Login() {
         <AuthLayout>
             <AuthCard
                 title="Welcome back"
-                subtitle="Please enter your details to sign in."
+                subtitle="Sign in to consult your AI Pharmacist and track orders."
             >
                 <form className="space-y-4" onSubmit={handleSubmit}>
                     <InputField
@@ -82,7 +86,7 @@ export default function Login() {
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
-                        placeholder="name@pharmacy.com"
+                        placeholder="patient@pharmacy.com"
                     />
 
                     <InputField
@@ -95,13 +99,18 @@ export default function Login() {
                     />
 
                     {error && (
-                        <p className="text-red-500 text-sm">{error}</p>
+                        <p className="text-red-400 text-xs bg-red-950/60 p-2.5 rounded-lg border border-red-800/60">{error}</p>
                     )}
 
                     <PrimaryButton type="submit" disabled={loading}>
                         {loading ? "Signing In..." : "Sign In"}
                     </PrimaryButton>
-                    <p className="text-sm text-center text-[#9FB7C8]">Dont't have account <Link to="/register" className="text-blue-500 hover:underline">Sign Up</Link></p>
+                    <p className="text-sm text-center text-[#9FB7C8]">
+                        Don't have an account?{" "}
+                        <Link to="/register" className="text-blue-400 hover:underline font-medium">
+                            Create Account
+                        </Link>
+                    </p>
                 </form>
             </AuthCard>
         </AuthLayout>

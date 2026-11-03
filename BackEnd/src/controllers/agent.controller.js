@@ -1,4 +1,4 @@
-import { db } from "../db.js";
+import { db } from "../utils/db.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { langfuse } from "../utils/langfuse.js";
 import { randomUUID } from "crypto";
@@ -815,5 +815,4 @@ export const confirmOrder = asyncHandler(async (req, res) => {
 });
 // Alternative export names for compatibility
 export const chat = chatWithAgent;
-
 
