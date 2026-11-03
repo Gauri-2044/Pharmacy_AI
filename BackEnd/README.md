@@ -20,3 +20,7 @@ To load the ten-product catalogue supplied for Neon:
 ```powershell
 npm run db:catalog
 ```
+
+For Vercel, set the project root directory to `BackEnd`. The deployment uses
+`api/index.js` as the serverless function entrypoint; local development still
+uses `node src/server.js`.
