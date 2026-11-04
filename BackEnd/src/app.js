@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { randomUUID } from "crypto";
 import express from "express";
 import cors from "cors";
 
@@ -11,6 +12,23 @@ import userRouter from "./routes/user.routes.js";
 import prescriptionRoute from "./services/prescriptionRoute.js";
 
 export const app = express();
+
+app.use((req, res, next) => {
+  const requestId = req.headers["x-request-id"] || randomUUID();
+  const startedAt = Date.now();
+  const requestPath = req.originalUrl.split("?")[0];
+
+  res.setHeader("x-request-id", requestId);
+  console.log(`[request:start] ${requestId} ${req.method} ${requestPath}`);
+
+  res.on("finish", () => {
+    console.log(
+      `[request:end] ${requestId} ${req.method} ${requestPath} ${res.statusCode} ${Date.now() - startedAt}ms`,
+    );
+  });
+
+  next();
+});
 
 // const corsOptions = {
 //   origin: (origin, callback) => {
@@ -69,5 +87,26 @@ app.use("/api/orders", ordersRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/user", userRouter);
 app.use("/api/agent", agentRouter);
+
+app.use((req, res) => {
+  const requestPath = req.originalUrl.split("?")[0];
+  console.warn(`[request:404] ${req.method} ${requestPath}`);
+  res.status(404).json({ error: "Route not found", path: requestPath });
+});
+
+app.use((error, req, res, next) => {
+  const requestPath = req.originalUrl.split("?")[0];
+  console.error(`[request:error] ${req.method} ${requestPath}`, error);
+
+  if (res.headersSent) {
+    next(error);
+    return;
+  }
+
+  res.status(error.status || 500).json({
+    error: "Internal server error",
+    requestId: res.getHeader("x-request-id"),
+  });
+});
 
 export default app;

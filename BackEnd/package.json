@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "start": "node src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "db:init": "node src/utils/initialize-database.js && node src/utils/seed-medicines.js",
     "db:catalog": "node src/utils/initialize-database.js && node src/utils/seed-catalog.js"
