@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import express from "express";
 import multer from "multer";
 import fs from "fs";
+import os from "os";
 import { GoogleGenAI } from "@google/genai";
 import { db } from "../utils/db.js";
 
@@ -12,9 +13,11 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const router = express.Router();
+const uploadDirectory = path.join(os.tmpdir(), "pharmacy-uploads");
+fs.mkdirSync(uploadDirectory, { recursive: true });
 
 const upload = multer({
-  dest: "uploads/",
+  dest: uploadDirectory,
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (!file.mimetype?.startsWith("image/")) {

@@ -8,6 +8,16 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const smtpPort = Number(process.env.SMTP_PORT || 587);
+const smtpConfigured = Boolean(
+  process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS,
+);
+
+console.log("[mailer.config]", {
+  host: process.env.SMTP_HOST || "missing",
+  port: smtpPort,
+  userConfigured: Boolean(process.env.SMTP_USER),
+  passwordConfigured: Boolean(process.env.SMTP_PASS),
+});
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -22,7 +32,7 @@ const transporter = nodemailer.createTransport({
 transporter.verify((error) => {
   if (error) {
     console.error("SMTP connection failed:", error.message);
-  } else {
+  } else if (smtpConfigured) {
     console.log("SMTP server is ready to send emails");
   }
 });

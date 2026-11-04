@@ -3,7 +3,7 @@ import { db } from "../utils/db.js";
 export const userRepository = {
   async findByEmail(email) {
     const result = await db.query(
-      "SELECT user_id, user_name, phone, email, hashed_password, user_role FROM users WHERE email = $1 LIMIT 1",
+      "SELECT user_id, user_name, phone, email, hashed_password, user_role FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1",
       [email]
     );
     return result.rows[0] || null;
