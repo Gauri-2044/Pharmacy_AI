@@ -54,6 +54,31 @@ export default function ChatPage() {
     }
   }, [navigate, location, toast]);
 
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    axios
+      .get(apiUrl("/api/agent/chat/history"), {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then(({ data }) => {
+        if (Array.isArray(data.messages) && data.messages.length) {
+          setMessages(
+            data.messages.map((message) => ({
+              id: String(message.id),
+              role: message.role,
+              content: message.content,
+              timestamp: new Date(message.created_at),
+            })),
+          );
+        }
+      })
+      .catch((error) => {
+        console.error("Chat history load failed", error);
+      });
+  }, []);
+
   // Voice Recognition states
   const [isListening, setIsListening] = useState(false);
   const [speechTranscript, setSpeechTranscript] = useState("");
@@ -424,8 +449,19 @@ export default function ChatPage() {
   };
 
   const clearChat = () => {
-    setMessages(initialMessages);
-    toast.info("Chat conversation cleared.", "Cleared");
+    const token = localStorage.getItem("token");
+    axios
+      .delete(apiUrl("/api/agent/chat/history"), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      .then(() => {
+        setMessages(initialMessages);
+        toast.info("Chat conversation cleared.", "Cleared");
+      })
+      .catch((error) => {
+        console.error("Chat history clear failed", error);
+        toast.error("Could not clear chat history.", "Clear Failed");
+      });
   };
 
   const quickPrompts = [

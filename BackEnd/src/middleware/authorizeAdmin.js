@@ -8,7 +8,7 @@ export default function authorizeAdmin(req, res, next) {
     }
 
     // Check role
-    if (req.user.role !== "admin") {
+    if (String(req.user.role || "").trim().toLowerCase() !== "admin") {
       return res.status(403).json({
         message: "Forbidden: Admin access only",
       });
